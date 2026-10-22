@@ -215,10 +215,17 @@ background:#fff0f5;font-size:13px}
 
     $('submitBtn').disabled = true;
     try {
-      const {error} = await db.from('wish_orders').insert({
-        wish_title:title,
-        wish_note:note
-      });
+     const {data: {user}} = await db.auth.getUser();
+
+if (!user) {
+  throw new Error('请先登录后再提交心愿');
+}
+
+const {error} = await db.from('wish_orders').insert({
+  wish_title: title,
+  wish_note: note,
+  user_id: user.id
+});
       if (error) throw error;
       $('wishForm').reset();
       message('心愿提交成功！等他来接单吧 💗');
