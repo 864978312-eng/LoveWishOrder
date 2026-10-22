@@ -322,6 +322,77 @@ const {error} = await db.from('wish_orders').insert({
     });
   }
 
+async function loadMyOrders() {
+  const container = $('myOrders');
+  if (!container) return;
+
+  container.replaceChildren();
+  const loading = document.createElement('p');
+  loading.textContent = '正在加载你的心愿……';
+  container.appendChild(loading);
+
+  try {
+    const { data: { user }, error: userError } =
+      await db.auth.getUser();
+
+    if (userError) throw userError;
+    if (!user) throw new Error('请重新登录');
+
+    const { data, error } = await db
+      .from('wish_orders')
+      .select('wish_title,wish_note,status,created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    container.replaceChildren();
+
+    if (!data || data.length === 0) {
+      container.textContent = '还没有心愿记录，快提交第一个心愿吧 💗';
+      return;
+    }
+
+    const statusNames = {
+      pending: '待处理',
+      accepted: '已接单',
+      completed: '已完成'
+    };
+
+    data.forEach(order => {
+      const article = document.createElement('article');
+      article.className = 'order';
+
+      const title = document.createElement('h3');
+      title.textContent = '💗 ' + order.wish_title;
+      article.appendChild(title);
+
+      const note = document.createElement('p');
+      note.textContent = order.wish_note || '没有填写备注';
+      article.appendChild(note);
+
+      const status = document.createElement('p');
+      status.className = 'status';
+      status.textContent =
+        '当前状态：' + (statusNames[order.status] || order.status);
+      article.appendChild(status);
+
+      const time = document.createElement('p');
+      time.className = 'small';
+      time.textContent = '提交时间：' +
+        new Date(order.created_at).toLocaleString('zh-CN');
+      article.appendChild(time);
+
+      container.appendChild(article);
+    });
+  } catch (err) {
+    container.replaceChildren();
+    const errorText = document.createElement('p');
+    errorText.textContent = '加载心愿失败：' + err.message;
+    container.appendChild(errorText);
+  }
+}
+
   $('refreshBtn').addEventListener('click',loadOrders);
 
   db.auth.onAuthStateChange((event,session)=>{
