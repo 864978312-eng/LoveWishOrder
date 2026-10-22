@@ -106,10 +106,10 @@ background:#fff0f5;font-size:13px}
     return;
   }
 
-  const db = window.supabase.createClient(
-    SUPABASE_URL, https://rzapwxghencaeqhbwqtz.supabase.co/rest/v1/
-  );
-
+ const db = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
   let currentUser = null;
   let currentRole = null;
 
