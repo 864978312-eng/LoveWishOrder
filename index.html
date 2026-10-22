@@ -154,10 +154,11 @@ background:#fff0f5;font-size:13px}
       $('welcome').textContent =
         currentRole === 'merchant' ? '💼 商家管理空间' : '💗 顾客心愿空间';
 
-      if (currentRole === 'customer') {
-        show('customerCard',true);
-        message('欢迎回来！许下你的专属心愿吧。');
-      } else {
+     if (currentRole === 'customer') {
+  show('customerCard',true);
+  message('欢迎回来！许下你的专属心愿吧。');
+  await loadMyOrders();
+} else {
         show('merchantCard',true);
         message('欢迎回来！这里可以查看和处理心愿订单。');
         await loadOrders();
