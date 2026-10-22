@@ -2,53 +2,334 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>专属心愿点单</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      padding: 24px 16px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #fff0f5;
-      color: #684253;
-      font-family: Arial, "Microsoft YaHei", sans-serif;
-    }
-    main {
-      width: 100%;
-      max-width: 440px;
-      padding: 32px 24px;
-      background: #ffffff;
-      border-radius: 24px;
-      text-align: center;
-      box-shadow: 0 10px 36px rgba(190, 90, 130, 0.15);
-    }
-    .heart { font-size: 64px; }
-    h1 { color: #d65383; font-size: 28px; }
-    p { line-height: 1.9; }
-    .status {
-      padding: 14px;
-      margin-top: 24px;
-      border-radius: 14px;
-      background: #fff0f5;
-      color: #b44470;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>专属心愿点单 💗</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--pink:#ff6f9f;--light:#fff0f5;--text:#5d3445}
+*{box-sizing:border-box}
+body{margin:0;padding:24px 14px;font-family:system-ui,sans-serif;
+background:linear-gradient(135deg,#fff0f5,#ffe0eb);color:var(--text)}
+main{max-width:620px;margin:auto}
+header{text-align:center;padding:18px 8px}
+h1{color:#e84d85;margin-bottom:8px}
+.card{background:#ffffffed;padding:22px;border-radius:20px;
+margin:16px 0;box-shadow:0 5px 20px #d95c8314}
+input,textarea,select{width:100%;padding:12px;margin:7px 0 14px;
+border:1px solid #f0bfd0;border-radius:10px;font:inherit;background:white}
+button{border:0;border-radius:12px;padding:12px 18px;
+background:var(--pink);color:white;font-size:15px;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}
+.secondary{background:#b56b89}
+.small{font-size:13px;color:#966a7d}
+.status{display:inline-block;padding:4px 9px;border-radius:9px;
+background:#fff0f5;font-size:13px}
+.order{border-top:1px solid #f4d5e0;padding:14px 0}
+#message{white-space:pre-wrap;overflow-wrap:anywhere}
+.hidden{display:none}
+</style>
 </head>
 <body>
-  <main>
-    <div class="heart">💕</div>
-    <h1>专属心愿点单</h1>
-    <p>把小小的心愿，变成我们一起完成的约定。</p>
-    <div class="status">
-      <strong>网页初始化成功！</strong>
-      <p>很期待和你一起完成每一个心愿。</p>
-    </div>
-    <p>每一份心愿，都值得认真回应。❤️</p>
-  </main>
+<main>
+<header>
+  <h1>💗 专属心愿点单 💗</h1>
+  <p>把小小心愿，变成我们一起实现的浪漫。</p>
+</header>
+
+<section class="card" id="loginCard">
+  <h2>💌 登录专属空间</h2>
+  <p class="small">请使用已经创建好的账号登录，不支持在此页面注册。</p>
+  <form id="loginForm">
+    <label for="email">邮箱</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="password">密码</label>
+    <input id="password" type="password"
+      autocomplete="current-password" required>
+    <button type="submit" id="loginBtn">登录</button>
+  </form>
+</section>
+
+<section class="card hidden" id="appCard">
+  <p id="welcome"></p>
+  <button class="secondary" id="logoutBtn">退出登录</button>
+</section>
+
+<section class="card hidden" id="customerCard">
+  <h2>🌷 许下一个心愿</h2>
+  <form id="wishForm">
+    <label for="wishTitle">心愿内容</label>
+    <select id="wishTitle" required>
+      <option value="">请选择心愿</option>
+      <option>想要一个拥抱</option>
+      <option>想和你见面</option>
+      <option>一起吃饭</option>
+      <option>一起逛街</option>
+      <option>一起散步</option>
+      <option>一起看电影</option>
+      <option>收到一份小惊喜</option>
+      <option>其他心愿</option>
+    </select>
+    <label for="wishNote">想对他说的话</label>
+    <textarea id="wishNote" rows="3" maxlength="500"
+      placeholder="写下你的心愿或备注吧……"></textarea>
+    <button type="submit" id="submitBtn">提交心愿 💗</button>
+  </form>
+  <p class="small">提交后，商家登录即可查看。请勿填写敏感个人信息。</p>
+</section>
+
+<section class="card hidden" id="merchantCard">
+  <h2>📬 心愿订单管理</h2>
+  <button id="refreshBtn" class="secondary">刷新订单</button>
+  <div id="orders"></div>
+</section>
+
+<section class="card">
+  <p id="message" role="status">正在准备专属空间……</p>
+</section>
+<p class="small" style="text-align:center">只为你们两个人准备的浪漫空间 💕</p>
+</main>
+
+<script>
+(() => {
+  // 替换下面两项为你在 Supabase 保存的信息
+  const SUPABASE_URL = 'https://rzapwxghencaeqhbwqtz.supabase.co/rest/v1/';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_JUdki00fXN20ncJrJJxMCg_i-h1UJHW';
+
+  const $ = id => document.getElementById(id);
+  const message = text => $('message').textContent = text;
+
+  if (!window.supabase ||
+      SUPABASE_URL.includes('在这里填写') ||
+      SUPABASE_PUBLISHABLE_KEY.includes('在这里填写')) {
+    message('请先填写 Supabase API URL 和 Publishable key。');
+    return;
+  }
+
+  const db = window.supabase.createClient(
+    SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
+  );
+
+  let currentUser = null;
+  let currentRole = null;
+
+  function show(id, visible) {
+    $(id).classList.toggle('hidden', !visible);
+  }
+
+  function resetPanels() {
+    ['appCard','customerCard','merchantCard'].forEach(id => show(id,false));
+    show('loginCard',!currentUser);
+  }
+
+  async function loadRole(user) {
+    const {data: isMerchant, error: merchantError} =
+      await db.rpc('has_role',{required_role:'merchant'});
+    if (merchantError) throw merchantError;
+
+    const {data: isCustomer, error: customerError} =
+      await db.rpc('has_role',{required_role:'customer'});
+    if (customerError) throw customerError;
+
+    if (isMerchant === true) return 'merchant';
+    if (isCustomer === true) return 'customer';
+    throw new Error('该账号尚未分配商家或顾客角色，请检查数据库角色表。');
+  }
+
+  async function renderSession(user) {
+    currentUser = user;
+    currentRole = null;
+    resetPanels();
+
+    if (!user) {
+      message('请登录后使用专属心愿空间。');
+      return;
+    }
+
+    message('正在验证账号权限……');
+    try {
+      currentRole = await loadRole(user);
+      show('loginCard',false);
+      show('appCard',true);
+      $('welcome').textContent =
+        currentRole === 'merchant' ? '💼 商家管理空间' : '💗 顾客心愿空间';
+
+      if (currentRole === 'customer') {
+        show('customerCard',true);
+        message('欢迎回来！许下你的专属心愿吧。');
+      } else {
+        show('merchantCard',true);
+        message('欢迎回来！这里可以查看和处理心愿订单。');
+        await loadOrders();
+      }
+    } catch (e) {
+      await db.auth.signOut();
+      currentUser = null;
+      currentRole = null;
+      resetPanels();
+      message('账号权限验证失败：' + e.message);
+    }
+  }
+
+  $('loginForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const btn = $('loginBtn');
+    btn.disabled = true;
+    message('正在登录……');
+    try {
+      const {data,error} = await db.auth.signInWithPassword({
+        email:$('email').value.trim(),
+        password:$('password').value
+      });
+      if (error) throw error;
+      await renderSession(data.user);
+    } catch (err) {
+      message('登录失败：' + err.message +
+        '。请确认邮箱、密码及账号确认状态。');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $('logoutBtn').addEventListener('click',async()=>{
+    const {error} = await db.auth.signOut();
+    if (error) {
+      message('退出失败：' + error.message);
+      return;
+    }
+    await renderSession(null);
+  });
+
+  $('wishForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    if (!currentUser || currentRole !== 'customer') {
+      message('请使用顾客账号登录后提交。');
+      return;
+    }
+    const title = $('wishTitle').value;
+    const note = $('wishNote').value.trim();
+    if (!title) {
+      message('请先选择一个心愿。');
+      return;
+    }
+
+    $('submitBtn').disabled = true;
+    try {
+      const {error} = await db.from('wish_orders').insert({
+        wish_title:title,
+        wish_note:note
+      });
+      if (error) throw error;
+      $('wishForm').reset();
+      message('心愿提交成功！等他来接单吧 💗');
+    } catch (err) {
+      message('提交失败：' + err.message);
+    } finally {
+      $('submitBtn').disabled = false;
+    }
+  });
+
+  async function loadOrders() {
+    if (currentRole !== 'merchant') return;
+    const container = $('orders');
+    container.replaceChildren();
+    const loading = document.createElement('p');
+    loading.textContent = '正在加载订单……';
+    container.appendChild(loading);
+
+    const {data,error} = await db.from('wish_orders')
+      .select('id,wish_title,wish_note,status,created_at')
+      .order('created_at',{ascending:false});
+
+    container.replaceChildren();
+    if (error) {
+      message('读取订单失败：' + error.message);
+      return;
+    }
+    if (!data.length) {
+      container.textContent = '暂时还没有心愿订单。';
+      return;
+    }
+
+    data.forEach(order=>{
+      const article = document.createElement('article');
+      article.className = 'order';
+
+      const title = document.createElement('h3');
+      title.textContent = '💗 ' + order.wish_title;
+      article.appendChild(title);
+
+      const note = document.createElement('p');
+      note.textContent = order.wish_note || '没有填写备注';
+      article.appendChild(note);
+
+      const time = document.createElement('p');
+      time.className = 'small';
+      time.textContent = '提交时间：' +
+        new Date(order.created_at).toLocaleString();
+      article.appendChild(time);
+
+      const status = document.createElement('p');
+      status.className = 'status';
+      status.textContent = '当前状态：' + ({
+        pending:'待处理',accepted:'已接单',completed:'已完成'
+      }[order.status] || order.status);
+      article.appendChild(status);
+
+      const select = document.createElement('select');
+      [
+        ['pending','待处理'],
+        ['accepted','已接单'],
+        ['completed','已完成']
+      ].forEach(([value,label])=>{
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        select.appendChild(option);
+      });
+      select.value = order.status;
+      article.appendChild(select);
+
+      const button = document.createElement('button');
+      button.textContent = '保存状态';
+      button.addEventListener('click',async()=>{
+        button.disabled = true;
+        try {
+          const {error} = await db.from('wish_orders')
+            .update({status:select.value}).eq('id',order.id);
+          if (error) throw error;
+          message('订单状态已更新。');
+          await loadOrders();
+        } catch (err) {
+          message('更新失败：' + err.message);
+        } finally {
+          button.disabled = false;
+        }
+      });
+      article.appendChild(button);
+      container.appendChild(article);
+    });
+  }
+
+  $('refreshBtn').addEventListener('click',loadOrders);
+
+  db.auth.onAuthStateChange((event,session)=>{
+    if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      currentRole = null;
+      resetPanels();
+    }
+  });
+
+  db.auth.getSession().then(({data,error})=>{
+    if (error) {
+      message('获取登录状态失败：' + error.message);
+      return;
+    }
+    renderSession(data.session?.user || null);
+  });
+})();
+</script>
 </body>
 </html>
+
